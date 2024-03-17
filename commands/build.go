@@ -248,25 +248,70 @@ func build(services *stack.Services, queueDepth int, shrinkwrap, quietBuild bool
 					combinedBuildOptions := combineBuildOpts(function.BuildOptions, buildOptions)
 					combinedBuildArgMap := util.MergeMap(function.BuildArgs, buildArgMap)
 					combinedExtraPaths := util.MergeSlice(services.StackConfiguration.CopyExtraPaths, copyExtra)
-					err := builder.BuildImage(function.Image,
-						function.Handler,
-						function.Name,
-						function.Language,
-						nocache,
-						squash,
-						shrinkwrap,
-						combinedBuildArgMap,
-						combinedBuildOptions,
-						tagFormat,
-						buildLabelMap,
-						quietBuild,
-						combinedExtraPaths,
-						remoteBuilder,
-						payloadSecretPath,
-					)
 
-					if err != nil {
-						errors = append(errors, err)
+					// NewCode: Here we need to get the Language, functionName and other required parameters and start the replacement
+					// of the ML inference code for Pytorch and tensorflow
+
+					// Check if function Language contains "python"
+					// 		If so, we need to check if Labels has GPU-Enable set to true
+					// 			If so, we need to replace the ML inference code with the GPU code
+					// 			If not, we do nothing
+					// 		If not, we do nothing
+					oldCodeData := ""
+					oldCodeDataFound := false
+					errorFound := false
+					if strings.Contains(function.Language, "python") {
+						// Check if function Labels has GPU-Enable set to true
+						if function.Labels != nil {
+							if val, exists := (*function.Labels)["GPU-Enable"]; exists {
+								valLowerCase := strings.ToLower(val)
+								if valLowerCase == "true" {
+									// TODO: Call utility function to replace the ML inference code with the GPU code
+									data, err := util.ParsePythonFilesInsideDirectory(function.Handler)
+									if err != nil {
+										errors = append(errors, err)
+										errorFound = true
+									} else {
+										if data != "" {
+											oldCodeData = data
+											oldCodeDataFound = true
+										}
+									}
+									fmt.Println("GPU-Enable is set to true. Replacing the ML inference code with the GPU code.")
+								}
+							}
+						}
+					}
+
+					if !errorFound {
+						err := builder.BuildImage(function.Image,
+							function.Handler,
+							function.Name,
+							function.Language,
+							nocache,
+							squash,
+							shrinkwrap,
+							combinedBuildArgMap,
+							combinedBuildOptions,
+							tagFormat,
+							buildLabelMap,
+							quietBuild,
+							combinedExtraPaths,
+							remoteBuilder,
+							payloadSecretPath,
+						)
+
+						if err != nil {
+							errors = append(errors, err)
+						}
+
+						if oldCodeDataFound {
+							err := util.ReplaceFileWithOriginalCode(function.Handler, oldCodeData)
+							fmt.Println("Reverting the ML inference code back to the original code.")
+							if err != nil {
+								errors = append(errors, err)
+							}
+						}
 					}
 				}
 
