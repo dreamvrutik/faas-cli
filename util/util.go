@@ -73,9 +73,10 @@ from unittest.mock import patch, MagicMock
 import torch.nn as mock_nn
 
 class OpenFaasMockTensorflowModel():
-	def __init__(self, model_name, weights=None):
+	def __init__(self, model_name, weights=None, include_top=None):
 		self.model_name = model_name
-		self.weights = weights
+		self.weights = "" if weights == None else weights
+		self.include_top = "" if include_top == None else include_top
 		self.num_classes = 1000
 		self.model_name_to_type = {'ConvNeXtBase': 'convnext', 'ConvNeXtLarge': 'convnext', 'ConvNeXtSmall': 'convnext', 'ConvNeXtTiny': 'convnext', 'ConvNeXtXLarge': 'convnext', 'DenseNet121': 'densenet', 'DenseNet169': 'densenet', 'DenseNet201': 'densenet', 'EfficientNetB0': 'efficientnet', 'EfficientNetB1': 'efficientnet', 'EfficientNetB2': 'efficientnet', 'EfficientNetB3': 'efficientnet', 'EfficientNetB4': 'efficientnet', 'EfficientNetB5': 'efficientnet', 'EfficientNetB6': 'efficientnet', 'EfficientNetB7': 'efficientnet', 'EfficientNetV2B0': 'efficientnet_v2', 'EfficientNetV2B1': 'efficientnet_v2', 'EfficientNetV2B2': 'efficientnet_v2', 'EfficientNetV2B3': 'efficientnet_v2', 'EfficientNetV2L': 'efficientnet_v2', 'EfficientNetV2M': 'efficientnet_v2', 'EfficientNetV2S': 'efficientnet_v2', 'InceptionResNetV2': 'inception_resnet_v2', 'InceptionV3': 'inception_v3', 'MobileNet': 'mobilenet', 'MobileNetV2': 'mobilenet_v2', 'NASNetLarge': 'nasnet', 'NASNetMobile': 'nasnet', 'ResNet101': 'resnet', 'ResNet152': 'resnet', 'ResNet50': 'resnet50', 'ResNet101V2': 'resnet_v2', 'ResNet152V2': 'resnet_v2', 'ResNet50V2': 'resnet_v2', 'VGG16': 'vgg16', 'VGG19': 'vgg19', 'Xception': 'xception'}
 
@@ -85,12 +86,16 @@ class OpenFaasMockTensorflowModel():
 	
 	def __create_request_data(self, input_batch):
 		input_batch_json = self.__convert_input_batch_to_json_list(input_batch)
+		tensor_shape = tf.TensorShape(input_batch.shape)
+		batch_size = tensor_shape[0].value
 		# Create Request data
 		request_data = {
 			"model_type": "tensorflow",
 			"tensorflow_model_type": self.model_name_to_type[self.model_name],
 			"model_name": self.model_name,
 			"weights": self.weights,
+			"include_top": self.include_top,
+			"batch_size": batch_size,
 			"input_batch": input_batch_json
 		}
 		return request_data
@@ -125,8 +130,8 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 	def __init__(self, model_name, weights=None, pretrained=None):
 		super(OpenFaasMockTorchModel, self).__init__()
 		self.model_name = model_name
-		self.weights = weights
-		self.pretrained = pretrained
+		self.weights = "" if weights == None else weights
+		self.pretrained = "" if pretrained == None else pretrained
 		self.num_classes = 1000
 
 	def __convert_input_batch_to_json_list(self, input_batch):
@@ -135,12 +140,15 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 	
 	def __create_request_data(self, input_batch):
 		input_batch_json = self.__convert_input_batch_to_json_list(input_batch)
+		batch_size, _, _, _ = input_batch.shape
+
 		# Create Request data
 		request_data = {
 			"model_type": "torch",
 			"model_name": self.model_name,
 			"weights": self.weights,
 			"pretrained": self.pretrained,
+			"batch_size": batch_size,
 			"input_batch": input_batch_json
 		}
 		return request_data
@@ -193,7 +201,11 @@ class MockModels():
 		if "weights" in kwargs:
 			weights = kwargs["weights"]
 		
-		return weights
+		include_top = None
+		if "include_top" in kwargs:
+			include_top = kwargs["include_top"]
+		
+		return weights, include_top
 
 	def __getattr__(self, name: str, *args, **kwargs):
 		# Check if the name is a valid attribute
@@ -207,8 +219,8 @@ class MockModels():
 					weights, pretrained = self.get_torch_params(kwargs)
 					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights, pretrained=pretrained)
 				elif model_type == "tensorflow":
-					weights = self.get_tensorflow_params(kwargs)
-					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights)
+					weights, include_top = self.get_tensorflow_params(kwargs)
+					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights, include_top=include_top)
 				else:
 					return MagicMock()
 			return custom_mock_function
@@ -217,7 +229,7 @@ def OpenFaasMockCodeDecorator(func):
 	def wrapper(*args, **kwargs):
 		mock_models_instance = MockModels()
 
-		torch_model_list = ['alexnet', 'convnext_base', 'convnext_large', 'convnext_small', 'convnext_tiny', 'densenet121', 'densenet161', 'densenet169', 'densenet201', 'efficientnet_b0', 'efficientnet_b1', 'efficientnet_b2', 'efficientnet_b3', 'efficientnet_b4', 'efficientnet_b5', 'efficientnet_b6', 'efficientnet_b7', 'efficientnet_v2_l', 'efficientnet_v2_m', 'efficientnet_v2_s', 'googlenet', 'inception_v3', 'maxvit_t', 'mnasnet0_5', 'mnasnet0_75', 'mnasnet1_0', 'mnasnet1_3', 'mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small', 'regnet_x_16gf', 'regnet_x_1_6gf', 'regnet_x_32gf', 'regnet_x_3_2gf', 'regnet_x_400mf', 'regnet_x_800mf', 'regnet_x_8gf', 'regnet_y_128gf', 'regnet_y_16gf', 'regnet_y_1_6gf', 'regnet_y_32gf', 'regnet_y_3_2gf', 'regnet_y_400mf', 'regnet_y_800mf', 'regnet_y_8gf', 'resnet101', 'resnet152', 'resnet18', 'resnet34', 'resnet50', 'resnext101_32x8d', 'resnext101_64x4d', 'resnext50_32x4d', 'shufflenet_v2_x0_5', 'shufflenet_v2_x1_0', 'shufflenet_v2_x1_5', 'shufflenet_v2_x2_0', 'squeezenet1_0', 'squeezenet1_1', 'swin_b', 'swin_s', 'swin_t', 'swin_v2_b', 'swin_v2_s', 'swin_v2_t', 'vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19', 'vgg19_bn', 'vit_b_16', 'vit_b_32', 'vit_h_14', 'vit_l_16', 'vit_l_32', 'wide_resnet101_2', 'wide_resnet50_2']
+		torch_model_list = ['alexnet', 'convnext_base', 'convnext_large', 'convnext_small', 'convnext_tiny', 'densenet121', 'densenet161', 'densenet169', 'densenet201', 'efficientnet_b0', 'efficientnet_b1', 'efficientnet_b2', 'efficientnet_b3', 'efficientnet_b4', 'efficientnet_b5', 'efficientnet_b6', 'efficientnet_b7', 'efficientnet_v2_l', 'efficientnet_v2_m', 'efficientnet_v2_s', 'googlenet', 'inception_v3', 'maxvit_t', 'mnasnet0_5', 'mnasnet0_75', 'mnasnet1_0', 'mnasnet1_3', 'mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small', 'regnet_x_16gf', 'regnet_x_1_6gf', 'regnet_x_32gf', 'regnet_x_3_2gf', 'regnet_x_400mf', 'regnet_x_800mf', 'regnet_x_8gf', 'regnet_y_16gf', 'regnet_y_1_6gf', 'regnet_y_32gf', 'regnet_y_3_2gf', 'regnet_y_400mf', 'regnet_y_800mf', 'regnet_y_8gf', 'resnet101', 'resnet152', 'resnet18', 'resnet34', 'resnet50', 'resnext101_32x8d', 'resnext101_64x4d', 'resnext50_32x4d', 'shufflenet_v2_x0_5', 'shufflenet_v2_x1_0', 'shufflenet_v2_x1_5', 'shufflenet_v2_x2_0', 'squeezenet1_0', 'squeezenet1_1', 'swin_b', 'swin_s', 'swin_t', 'swin_v2_b', 'swin_v2_s', 'swin_v2_t', 'vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19', 'vgg19_bn', 'vit_b_16', 'vit_b_32', 'vit_l_16', 'vit_l_32', 'wide_resnet101_2', 'wide_resnet50_2']
 		for model_name in torch_model_list:
 			function_name = "torch_" + model_name
 			function_object = getattr(mock_models_instance, function_name)
