@@ -187,23 +187,31 @@ class MockModels():
 		pass
 
 	def get_torch_params(self, kwargs):
-		weights = None
+		weights = ""
 		if "weights" in kwargs:
 			weights = kwargs["weights"].name
 
-		pretrained = None
+		pretrained = ""
 		if "pretrained" in kwargs:
 			pretrained = kwargs["pretrained"]
+			if pretrained == True:
+				pretrained = "True"
+			else:
+				pretrained = "False"
 		return weights, pretrained
 	
 	def get_tensorflow_params(self, kwargs):
-		weights = None
+		weights = ""
 		if "weights" in kwargs:
 			weights = kwargs["weights"]
 		
-		include_top = None
+		include_top = ""
 		if "include_top" in kwargs:
 			include_top = kwargs["include_top"]
+			if include_top == True:
+				include_top = "True"
+			else:
+				include_top = "False"
 		
 		return weights, include_top
 
