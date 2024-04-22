@@ -87,8 +87,7 @@ class OpenFaasMockTensorflowModel():
 		input_batch_json = input_batch.tolist()
 		return input_batch_json
 	
-	def __create_request_data(self, input_batch):
-		input_batch_json = self.__convert_input_batch_to_json_list(input_batch)
+	def __create_request_data_for_scheduler(self, input_batch):
 		tensor_shape = tf.TensorShape(input_batch.shape)
 		batch_size = tensor_shape[0].value
 		# Create Request data
@@ -99,23 +98,31 @@ class OpenFaasMockTensorflowModel():
 			"weights": self.weights,
 			"include_top": self.include_top,
 			"batch_size": batch_size,
-			"input_batch": input_batch_json
 		}
 		return request_data
 	
 	def __get_output_from_scheduler(self, input_batch):
 		import requests
 		import numpy as np
-
+		
 		#TODO: Replace URL with actual scheduler url
-		url = ""
-		response = requests.post(url, data = self.__create_request_data(input_batch))
+		url = "http://scheduler-service.openfaas.svc.cluster.local:80/schedule"
+		response = requests.post(url, data = self.__create_request_data_for_scheduler(input_batch))
 
 		if response.status_code != 200:
 			output = response.json()
-			output_list = output["output"]
-			output_np_nd_array = np.array(output_list)
-			return output_np_nd_array
+			request_data = output["request"]
+			request_data["input_batch"] = self.__convert_input_batch_to_json_list(input_batch)
+			gpu_url_start = request_data["gpu_service_manager"] + "-service"
+			gpu_url = "http://" + gpu_url_start + ".openfaas.svc.cluster.local:80/process_inference_request"
+			gpu_response = requests.post(gpu_url, data = request_data)
+
+			if gpu_response.status_code != 200:
+				output_list = gpu_response.json()["output"]
+				output_np_nd_array = np.array(output_list)
+				return output_np_nd_array
+			else:
+				return np.zeros((input_batch.shape[0], self.num_classes))
 		else:
 			return np.zeros((input_batch.shape[0], self.num_classes))
 	
@@ -140,17 +147,15 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 		input_batch_json = input_batch.tolist()
 		return input_batch_json
 	
-	def __create_request_data(self, input_batch):
-		input_batch_json = self.__convert_input_batch_to_json_list(input_batch)
+	def __create_request_data_for_scheduler(self, input_batch):
 		batch_size, _, _, _ = input_batch.shape
 
 		# Create Request data
 		request_data = {
-			"model_type": "torch",
+			"model_family": "torch",
 			"model_name": self.model_name,
 			"weights": self.weights,
 			"batch_size": batch_size,
-			"input_batch": input_batch_json
 		}
 		return request_data
 	
@@ -159,14 +164,23 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 		import torch
 
 		#TODO: Replace URL with actual scheduler url
-		url = ""
-		response = requests.post(url, data = self.__create_request_data(input_batch))
+		url = "http://scheduler-service.openfaas.svc.cluster.local:80/schedule"
+		response = requests.post(url, data = self.__create_request_data_for_scheduler(input_batch))
 
 		if response.status_code != 200:
 			output = response.json()
-			output_list = output["output"]
-			output_tensor = torch.tensor(output_list)
-			return output_tensor
+			request_data = output["request"]
+			request_data["input_batch"] = self.__convert_input_batch_to_json_list(input_batch)
+			gpu_url_start = request_data["gpu_service_manager"] + "-service"
+			gpu_url = "http://" + gpu_url_start + ".openfaas.svc.cluster.local:80/process_inference_request"
+			gpu_response = requests.post(gpu_url, data = request_data)
+
+			if gpu_response.status_code != 200:
+				output_list = gpu_response.json()["output"]
+				output_tensor = torch.tensor(output_list)
+				return output_tensor
+			else:
+				return torch.tensor(torch.zeros(input_batch.size(0), self.num_classes))
 		else:
 			return torch.tensor(torch.zeros(input_batch.size(0), self.num_classes))
 
