@@ -73,9 +73,12 @@ from unittest.mock import patch, MagicMock
 import torch.nn as mock_nn
 
 class OpenFaasMockTensorflowModel():
-	def __init__(self, model_name, weights=None, include_top=None):
+	def __init__(self, model_name, weights="", include_top=None):
 		self.model_name = model_name
-		self.weights = "" if weights == None else weights
+		if weights == None:
+			self.weights = "None"
+		else:
+			self.weights = weights 
 		self.include_top = "" if include_top == None else include_top
 		self.num_classes = 1000
 		self.model_name_to_type = {'ConvNeXtBase': 'convnext', 'ConvNeXtLarge': 'convnext', 'ConvNeXtSmall': 'convnext', 'ConvNeXtTiny': 'convnext', 'ConvNeXtXLarge': 'convnext', 'DenseNet121': 'densenet', 'DenseNet169': 'densenet', 'DenseNet201': 'densenet', 'EfficientNetB0': 'efficientnet', 'EfficientNetB1': 'efficientnet', 'EfficientNetB2': 'efficientnet', 'EfficientNetB3': 'efficientnet', 'EfficientNetB4': 'efficientnet', 'EfficientNetB5': 'efficientnet', 'EfficientNetB6': 'efficientnet', 'EfficientNetB7': 'efficientnet', 'EfficientNetV2B0': 'efficientnet_v2', 'EfficientNetV2B1': 'efficientnet_v2', 'EfficientNetV2B2': 'efficientnet_v2', 'EfficientNetV2B3': 'efficientnet_v2', 'EfficientNetV2L': 'efficientnet_v2', 'EfficientNetV2M': 'efficientnet_v2', 'EfficientNetV2S': 'efficientnet_v2', 'InceptionResNetV2': 'inception_resnet_v2', 'InceptionV3': 'inception_v3', 'MobileNet': 'mobilenet', 'MobileNetV2': 'mobilenet_v2', 'NASNetLarge': 'nasnet', 'NASNetMobile': 'nasnet', 'ResNet101': 'resnet', 'ResNet152': 'resnet', 'ResNet50': 'resnet50', 'ResNet101V2': 'resnet_v2', 'ResNet152V2': 'resnet_v2', 'ResNet50V2': 'resnet_v2', 'VGG16': 'vgg16', 'VGG19': 'vgg19', 'Xception': 'xception'}
@@ -127,11 +130,10 @@ class OpenFaasMockTensorflowModel():
 			return MagicMock()
 
 class OpenFaasMockTorchModel(mock_nn.Module):
-	def __init__(self, model_name, weights=None, pretrained=None):
+	def __init__(self, model_name, weights=None):
 		super(OpenFaasMockTorchModel, self).__init__()
 		self.model_name = model_name
 		self.weights = "" if weights == None else weights
-		self.pretrained = "" if pretrained == None else pretrained
 		self.num_classes = 1000
 
 	def __convert_input_batch_to_json_list(self, input_batch):
@@ -147,7 +149,6 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 			"model_type": "torch",
 			"model_name": self.model_name,
 			"weights": self.weights,
-			"pretrained": self.pretrained,
 			"batch_size": batch_size,
 			"input_batch": input_batch_json
 		}
@@ -191,14 +192,7 @@ class MockModels():
 		if "weights" in kwargs:
 			weights = kwargs["weights"].name
 
-		pretrained = ""
-		if "pretrained" in kwargs:
-			pretrained = kwargs["pretrained"]
-			if pretrained == True:
-				pretrained = "True"
-			else:
-				pretrained = "False"
-		return weights, pretrained
+		return weights
 	
 	def get_tensorflow_params(self, kwargs):
 		weights = ""
@@ -224,8 +218,8 @@ class MockModels():
 				model_type = name.split("_")[0]
 				model_name = name.split("_")[1]
 				if model_type == "torch":
-					weights, pretrained = self.get_torch_params(kwargs)
-					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights, pretrained=pretrained)
+					weights = self.get_torch_params(kwargs)
+					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights)
 				elif model_type == "tensorflow":
 					weights, include_top = self.get_tensorflow_params(kwargs)
 					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights, include_top=include_top)
