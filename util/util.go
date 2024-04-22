@@ -199,6 +199,12 @@ class MockModels():
 		if "weights" in kwargs:
 			weights = kwargs["weights"]
 		
+		if weights == None:
+			weights = "None"
+		
+		if not(weights == "" || weights == "imagenet" or weights == "None"):
+			weights = "None"
+		
 		include_top = ""
 		if "include_top" in kwargs:
 			include_top = kwargs["include_top"]
