@@ -71,6 +71,7 @@ func AddOpenFaasGPUCodeToUserCode(data string) string {
 	mockClassCode := `
 from unittest.mock import patch, MagicMock
 import torch.nn as mock_nn
+import tensorflow as tf
 
 class OpenFaasMockTensorflowModel():
 	def __init__(self, model_name, weights="", include_top=None):
@@ -220,7 +221,7 @@ class MockModels():
 		if weights == None:
 			weights = "None"
 		
-		if not(weights == "" || weights == "imagenet" or weights == "None"):
+		if not(weights == "" or weights == "imagenet" or weights == "None"):
 			weights = "None"
 		
 		include_top = ""
