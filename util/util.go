@@ -107,7 +107,8 @@ class OpenFaasMockTensorflowModel():
 		
 		#TODO: Replace URL with actual scheduler url
 		url = "http://scheduler-service.openfaas.svc.cluster.local:80/schedule"
-		response = requests.post(url, data = self.__create_request_data_for_scheduler(input_batch))
+		headers = {'Content-Type': 'application/json'}
+		response = requests.post(url, data = self.__create_request_data_for_scheduler(input_batch), headers=headers)
 
 		if response.status_code != 200:
 			output = response.json()
@@ -115,7 +116,8 @@ class OpenFaasMockTensorflowModel():
 			request_data["input_batch"] = self.__convert_input_batch_to_json_list(input_batch)
 			gpu_url_start = request_data["gpu_service_manager"] + "-service"
 			gpu_url = "http://" + gpu_url_start + ".openfaas.svc.cluster.local:80/process_inference_request"
-			gpu_response = requests.post(gpu_url, data = request_data)
+			headers = {'Content-Type': 'application/json'}
+			gpu_response = requests.post(gpu_url, data = request_data, headers=headers)
 
 			if gpu_response.status_code != 200:
 				output_list = gpu_response.json()["output"]
@@ -165,7 +167,8 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 
 		#TODO: Replace URL with actual scheduler url
 		url = "http://scheduler-service.openfaas.svc.cluster.local:80/schedule"
-		response = requests.post(url, data = self.__create_request_data_for_scheduler(input_batch))
+		headers = {'Content-Type': 'application/json'}
+		response = requests.post(url, data = self.__create_request_data_for_scheduler(input_batch), headers=headers)
 
 		if response.status_code != 200:
 			output = response.json()
@@ -173,7 +176,8 @@ class OpenFaasMockTorchModel(mock_nn.Module):
 			request_data["input_batch"] = self.__convert_input_batch_to_json_list(input_batch)
 			gpu_url_start = request_data["gpu_service_manager"] + "-service"
 			gpu_url = "http://" + gpu_url_start + ".openfaas.svc.cluster.local:80/process_inference_request"
-			gpu_response = requests.post(gpu_url, data = request_data)
+			headers = {'Content-Type': 'application/json'}
+			gpu_response = requests.post(gpu_url, data = request_data, headers=headers)
 
 			if gpu_response.status_code != 200:
 				output_list = gpu_response.json()["output"]
