@@ -244,7 +244,7 @@ class MockModels():
 				model_name = name.split("_")[1]
 				if model_type == "torch":
 					weights = self.get_torch_params(kwargs)
-					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights)
+					return OpenFaasMockTorchModel(model_name=model_name, weights=weights)
 				elif model_type == "tensorflow":
 					weights, include_top = self.get_tensorflow_params(kwargs)
 					return OpenFaasMockTensorflowModel(model_name=model_name, weights=weights, include_top=include_top)
